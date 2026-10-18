@@ -54,6 +54,11 @@ li input[type=checkbox] { width: 28px; height: 28px; accent-color: var(--primary
 li.done span { text-decoration: line-through; color: var(--text-sub); }
 h2 { font-size: 16px; color: var(--text-sub); margin: 0 0 8px; }
 #chipsWrap { margin-bottom: 16px; }
+.hint { color: var(--text-sub); font-size: 16px; margin: 0 0 8px; }
+textarea { width: 100%; padding: 8px 12px; font-size: 18px; font-family: inherit; border: 2px solid var(--border); border-radius: 8px; }
+#editor { margin-top: 12px; }
+#candList li { min-height: 48px; }
+#candList li span { flex: 1; }
 #chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
 li small { color: var(--text-sub); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 14px; }
@@ -72,9 +77,17 @@ li small { color: var(--text-sub); border: 1px solid var(--border); border-radiu
     <datalist id="names"></datalist>
     <button type="submit">追加</button>
   </form>
-  <section id="chipsWrap" hidden>
+  <section id="chipsWrap">
     <h2>よく買うもの（タップで追加）</h2>
     <div id="chips"></div>
+    <p id="chipsEmpty" class="hint">まだありません。買うものを追加すると、ここに並びます。下の「候補を編集」からまとめて登録もできます。</p>
+    <button class="sub" id="editToggle" type="button">候補を編集</button>
+    <div id="editor" hidden>
+      <p class="hint">1行に1つずつ入力して登録します。</p>
+      <textarea id="bulk" rows="5" placeholder="牛乳&#10;卵&#10;納豆" aria-label="登録する候補"></textarea>
+      <p><button id="bulkAdd" type="button">候補に登録</button></p>
+      <ul id="candList"></ul>
+    </div>
   </section>
   <ul id="list"></ul>
   <div class="actions"><button class="sub" id="clear">チェック済みを削除</button></div>
@@ -163,7 +176,7 @@ try {
     render();
   }, (e) => msg("同期エラー：" + e.code));
   onSnapshot(freqCol, (snap) => {
-    freq = snap.docs.map((d) => d.data());
+    freq = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     render();
   }, (e) => msg("同期エラー：" + e.code));
 } catch (e) {
@@ -202,7 +215,7 @@ function renderChips() {
     .sort((a, b) => (b.count - a.count) || (tsMs(b.last) - tsMs(a.last)))
     .slice(0, CHIP_MAX);
   box.innerHTML = "";
-  document.getElementById("chipsWrap").hidden = top.length === 0;
+  document.getElementById("chipsEmpty").hidden = freq.length > 0;
   top.forEach((f) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "chip"; b.textContent = "＋ " + f.name;
@@ -215,7 +228,32 @@ function renderChips() {
   [...freq].sort((a, b) => b.count - a.count).forEach((f) => {
     const o = document.createElement("option"); o.value = f.name; dl.append(o);
   });
+  // 候補の編集画面：登録済みの一覧と削除
+  const cl = document.getElementById("candList");
+  cl.innerHTML = "";
+  [...freq].sort((a, b) => b.count - a.count).forEach((f) => {
+    const li = document.createElement("li");
+    const s = document.createElement("span"); s.textContent = f.name;
+    const d = document.createElement("button");
+    d.type = "button"; d.className = "danger"; d.textContent = "削除";
+    d.onclick = () => deleteDoc(doc(freqCol, f.id)).catch((e) => msg("削除失敗：" + e.code));
+    li.append(s, d); cl.append(li);
+  });
 }
+
+document.getElementById("editToggle").onclick = () => {
+  const ed = document.getElementById("editor");
+  ed.hidden = !ed.hidden;
+  document.getElementById("editToggle").textContent = ed.hidden ? "候補を編集" : "編集を閉じる";
+};
+document.getElementById("bulkAdd").onclick = () => {
+  const box = document.getElementById("bulk");
+  const names = [...new Set(box.value.split("\n").map((s) => s.trim()).filter(Boolean))];
+  names.forEach((name) =>
+    setDoc(doc(freqCol, freqKey(name)), { name, count: increment(1), last: serverTimestamp() }, { merge: true })
+      .catch((e) => msg("候補の保存失敗：" + e.code)));
+  box.value = "";
+};
 
 function render() {
   renderChips();
