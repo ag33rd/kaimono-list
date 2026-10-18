@@ -112,7 +112,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   <main>
     <p class="msg" id="msg" role="alert"></p>
     <ul id="list"></ul>
-    <p class="hint" style="margin-top:16px">買ったら、品物をタップしてチェック。もう一度タップで取り消し。チェックしたものは1日で消えます。</p>
+    <p class="hint" style="margin-top:16px">買ったら、品物をタップしてチェック（分類の最後に移ります）。もう一度タップで取り消し。チェックしたものは1日で消えます。</p>
   </main>
   <div class="footer"><button type="button" id="goAdd">＋ 買うものを追加</button></div>
 </section>
@@ -332,7 +332,7 @@ function render() {
   if (!$("view-settings").hidden) renderSettings();
 }
 
-// ① リスト画面：分類ごとに、追加した順に並べる
+// ① リスト画面：分類ごとに、追加した順に並べる（チェック済みは分類の最後）
 function renderList() {
   const ul = $("list");
   ul.replaceChildren();
@@ -345,8 +345,10 @@ function renderList() {
     const inCat = items.filter((it) => catOf(it.cat) === c);
     if (inCat.length === 0) return;
     const head = el("li"); head.append(el("h3", null, c)); ul.append(head);
-    // チェックしても場所は動かさない（同じ場所をもう一度押せば取り消せるように）
-    inCat.forEach((it) => {
+    // 未チェックは追加順、チェック済みは分類の最後へ（チェックした順に下へ並ぶ）
+    const todo = inCat.filter((it) => !it.done);
+    const done = inCat.filter((it) => it.done).sort((a, b) => tsMs(a.doneAt) - tsMs(b.doneAt));
+    [...todo, ...done].forEach((it) => {
       const li = el("li", "row" + (it.done ? " done" : ""));
       const label = el("label");
       const cb = el("input"); cb.type = "checkbox"; cb.checked = !!it.done;
