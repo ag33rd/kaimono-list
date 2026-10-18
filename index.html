@@ -12,6 +12,7 @@
 :root {
   --primary: #0017C1;       /* プライマリ（青） */
   --primary-hover: #00118F;
+  --primary-light: #E8F1FE; /* 追加済み候補の背景 */
   --text: #1A1A1A;
   --text-sub: #4D4D4D;
   --border: #767676;
@@ -25,99 +26,148 @@ body {
   margin: 0; background: var(--bg-sub); color: var(--text);
   font-family: "Noto Sans JP", sans-serif; font-size: 18px; line-height: 1.7;
 }
-header { background: var(--primary); color: #fff; padding: 16px; }
-header h1 { margin: 0; font-size: 22px; }
-main { max-width: 640px; margin: 0 auto; padding: 16px; }
-form { display: flex; gap: 8px; margin-bottom: 16px; }
-input[type=text] {
-  flex: 1; min-width: 0; min-height: 48px; padding: 8px 12px; font-size: 18px;
-  border: 2px solid var(--border); border-radius: 8px; background: var(--bg);
+[hidden] { display: none !important; }
+header {
+  position: sticky; top: 0; z-index: 2; background: var(--primary); color: #fff;
+  padding: 8px 16px; display: flex; align-items: center; gap: 8px; min-height: 60px;
 }
+header h1 { margin: 0; font-size: 22px; flex: 1; }
+header button { background: transparent; border-color: #fff; color: #fff; min-height: 44px; padding: 4px 12px; font-size: 16px; }
+header button:hover { background: var(--primary-hover); }
+main { max-width: 640px; margin: 0 auto; padding: 16px 16px 110px; }
 button {
-  min-height: 48px; padding: 8px 16px; font-size: 18px; font-weight: 700;
+  min-height: 48px; padding: 8px 16px; font-size: 18px; font-weight: 700; font-family: inherit;
   border-radius: 8px; border: 2px solid var(--primary);
   background: var(--primary); color: #fff; cursor: pointer;
 }
 button:hover { background: var(--primary-hover); }
 button.sub { background: var(--bg); color: var(--primary); }
 button.danger { background: var(--bg); color: var(--danger); border-color: var(--danger); }
+button:disabled { opacity: .4; cursor: default; }
 /* キーボード・タッチ操作時の視認性（黄色リング＋黒アウトライン） */
 :focus-visible { outline: 4px solid #000; outline-offset: 2px; box-shadow: 0 0 0 6px var(--focus); }
-ul { list-style: none; margin: 0; padding: 0; }
-li {
-  display: flex; align-items: center; gap: 12px; min-height: 56px;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  padding: 4px 12px; margin-bottom: 8px;
+input[type=text], textarea, select {
+  width: 100%; min-height: 48px; padding: 8px 12px; font-size: 18px; font-family: inherit;
+  border: 2px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
 }
-li label { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
-li input[type=checkbox] { width: 28px; height: 28px; accent-color: var(--primary); }
-li.done span { text-decoration: line-through; color: var(--text-sub); }
-form { flex-wrap: wrap; }
-select { flex: 1 1 100%; min-height: 48px; padding: 8px 12px; font-size: 18px; font-family: inherit;
-  border: 2px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
-#bulkCat { width: 100%; margin-bottom: 8px; }
-li.head { display: block; min-height: 0; background: none; border: none; border-left: 6px solid var(--primary);
-  border-radius: 0; margin: 16px 0 8px; padding: 0 0 0 8px; font-weight: 700; }
-.catlabel { color: var(--text-sub); font-size: 14px; }
-h2 { font-size: 16px; color: var(--text-sub); margin: 0 0 8px; }
-#chipsWrap { margin-bottom: 16px; }
-.hint { color: var(--text-sub); font-size: 16px; margin: 0 0 8px; }
-textarea { width: 100%; padding: 8px 12px; font-size: 18px; font-family: inherit; border: 2px solid var(--border); border-radius: 8px; }
-#editor { margin-top: 12px; }
-#candList li { min-height: 48px; }
-#candList li span { flex: 1; }
-#chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
-li small { color: var(--text-sub); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 14px; }
-.empty { color: var(--text-sub); text-align: center; padding: 24px 0; }
-.actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
-#orderPanel { margin-top: 12px; }
+h2 { font-size: 20px; margin: 24px 0 8px; }
+h3 { font-size: 18px; margin: 16px 0 8px; padding-left: 8px; border-left: 6px solid var(--primary); }
+.hint { color: var(--text-sub); font-size: 16px; margin: 0 0 12px; }
 .msg { color: var(--danger); font-weight: 700; margin: 0 0 12px; }
-.family { margin-top: 32px; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
-.family code { font-size: 20px; font-weight: 700; word-break: break-all; }
+
+/* ① リスト画面 */
+ul { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: flex; align-items: center; gap: 8px; min-height: 56px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 4px 4px 12px; margin-bottom: 8px;
+}
+.row label { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
+.row input[type=checkbox] { width: 28px; height: 28px; flex: none; accent-color: var(--primary); }
+.row.done { background: var(--bg-sub); }
+.row.done .name { text-decoration: line-through; color: var(--text-sub); }
+.badge { color: var(--text-sub); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 14px; }
+.x { background: transparent; border: none; color: var(--text-sub); min-width: 48px; padding: 0; font-size: 24px; font-weight: 400; }
+.x:hover { background: var(--bg-sub); }
+.empty { background: var(--bg); border: 1px dashed var(--border); border-radius: 8px; padding: 24px 16px; text-align: center; color: var(--text-sub); }
+.footer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
+  background: var(--bg-sub); border-top: 1px solid #ccc; padding: 12px 16px;
+}
+.footer button { display: block; width: 100%; max-width: 608px; margin: 0 auto; min-height: 60px; font-size: 20px; border-radius: 30px; }
+
+/* ② 追加画面 */
+#searchForm { margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
+.chip.on { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.newbox { background: var(--bg); border: 2px solid var(--primary); border-radius: 8px; padding: 12px; margin: 16px 0; }
+.newbox p { margin: 0 0 8px; font-weight: 700; }
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 3;
+  background: #1A1A1A; color: #fff; padding: 8px 20px; border-radius: 24px; font-size: 16px; white-space: nowrap;
+}
+
+/* ③ 設定画面 */
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.card h2 { margin-top: 0; }
+.card code { font-size: 20px; font-weight: 700; word-break: break-all; }
+.card .row { padding-left: 12px; }
+.card .row span { flex: 1; }
+.stack > * + * { margin-top: 8px; }
 </style>
 </head>
 <body>
-<header><h1>買い物リスト</h1></header>
-<main>
-  <form id="form">
-    <select id="cat" aria-label="分類"></select>
-    <input type="text" id="item" list="names" placeholder="リストにないものは入力" aria-label="買うもの" autocomplete="off">
-    <datalist id="names"></datalist>
-    <button type="submit">追加</button>
-  </form>
-  <section id="chipsWrap">
-    <h2>よく買うもの（タップで追加）</h2>
-    <div id="chips"></div>
-    <p id="chipsEmpty" class="hint">まだありません。買うものを追加すると、ここに並びます。下の「候補を編集」からまとめて登録もできます。</p>
-    <button class="sub" id="editToggle" type="button">候補を編集</button>
-    <div id="editor" hidden>
-      <p class="hint">1行に1つずつ入力して登録します。</p>
-      <select id="bulkCat" aria-label="登録する分類"></select>
-      <textarea id="bulk" rows="5" placeholder="牛乳&#10;卵&#10;納豆" aria-label="登録する候補"></textarea>
-      <p><button id="bulkAdd" type="button">候補に登録</button></p>
-      <ul id="candList"></ul>
+
+<!-- ① いつもの画面（買うもの一覧） -->
+<section id="view-list">
+  <header>
+    <h1>買い物リスト</h1>
+    <button type="button" id="goSettings">設定</button>
+  </header>
+  <main>
+    <p class="msg" id="msg" role="alert"></p>
+    <p class="hint">買ったら、品物をタップしてチェック。チェックしたものは1日で消えます。</p>
+    <ul id="list"></ul>
+  </main>
+  <div class="footer"><button type="button" id="goAdd">＋ 買うものを追加</button></div>
+</section>
+
+<!-- ② 追加画面 -->
+<section id="view-add" hidden>
+  <header>
+    <button type="button" class="back">← もどる</button>
+    <h1>買うものを追加</h1>
+  </header>
+  <main>
+    <form id="searchForm">
+      <input type="text" id="search" placeholder="さがす・新しく入力" aria-label="品物をさがす、または入力" autocomplete="off">
+    </form>
+    <div id="addBody"></div>
+  </main>
+  <div class="footer"><button type="button" class="back sub">リストにもどる</button></div>
+</section>
+
+<!-- ③ 設定画面 -->
+<section id="view-settings" hidden>
+  <header>
+    <button type="button" class="back">← もどる</button>
+    <h1>設定</h1>
+  </header>
+  <main>
+    <div class="card stack">
+      <h2>家族と共有</h2>
+      <p class="hint">同じ家族コードの端末どうしで、リストが共有されます。</p>
+      <p>家族コード：<code id="code"></code></p>
+      <button type="button" id="share">家族に共有リンクを送る</button>
+      <button type="button" class="sub" id="changeCode">家族コードを入力・変更</button>
     </div>
-  </section>
-  <ul id="list"></ul>
-  <div class="actions">
-    <button class="sub" id="clear">チェック済みを削除</button>
-    <button class="sub" id="orderToggle" type="button">区切りの順番を変更</button>
-  </div>
-  <div id="orderPanel" hidden>
-    <p class="hint">↑↓で区切りの順番を入れ替えます。家族全員の画面に反映されます。</p>
-    <ul id="orderList"></ul>
-  </div>
-  <p class="msg" id="msg" role="alert"></p>
-  <section class="family">
-    <p>家族コード：<code id="code"></code></p>
-    <p>同じコードを入れた端末どうしでリストが共有されます。</p>
-    <p><button id="share">家族に共有リンクを送る</button></p>
-    <button class="sub" id="changeCode">家族コードを入力・変更</button>
-  </section>
-</main>
+    <div class="card">
+      <h2>区切りの順番</h2>
+      <p class="hint">↑↓で入れ替えます。家族全員の画面に反映されます。</p>
+      <ul id="orderList"></ul>
+    </div>
+    <div class="card stack">
+      <h2>よく買うものの登録</h2>
+      <p class="hint">分類を選び、1行に1つずつ入力して登録します。</p>
+      <select id="bulkCat" aria-label="登録する分類"></select>
+      <textarea id="bulk" rows="4" placeholder="牛乳&#10;卵&#10;納豆" aria-label="登録する品物"></textarea>
+      <button type="button" id="bulkAdd">登録する</button>
+      <h2>登録済み（不要なものは削除）</h2>
+      <div id="candList"></div>
+    </div>
+    <div class="card stack">
+      <h2>チェック済みの品物</h2>
+      <p class="hint">1日たつと自動で消えます。すぐ消したいときはこちら。</p>
+      <button type="button" class="danger" id="clear">チェック済みをすべて削除</button>
+    </div>
+  </main>
+</section>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
 <script type="module">
-// 家族共有版：Firestoreにリアルタイム同期。構成は lists/{家族コード}/items/{id}
+// 家族共有版：Firestoreにリアルタイム同期。構成は lists/{家族コード}/items・freq・meta
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"; // バージョン要確認
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, addDoc, updateDoc, deleteDoc,
   setDoc, increment, onSnapshot, query, orderBy, serverTimestamp, writeBatch }
@@ -125,10 +175,38 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-const msg = (t) => { document.getElementById("msg").textContent = t; };
+const $ = (id) => document.getElementById(id);
+const msg = (t) => { $("msg").textContent = t; };
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const CODE_KEY = "family-code";
 
-// 家族コード：初回は推測されにくい12文字を自動生成
+// ---------- 画面の切り替え（スマホの「戻る」ボタンでも戻れるように #add / #settings を使う） ----------
+let movedInApp = false;
+function route() {
+  const v = location.hash === "#add" ? "add" : location.hash === "#settings" ? "settings" : "list";
+  for (const name of ["list", "add", "settings"]) $("view-" + name).hidden = name !== v;
+  window.scrollTo(0, 0);
+  if (v === "add") { $("search").value = ""; }
+  render();
+}
+window.addEventListener("hashchange", route);
+const go = (hash) => { movedInApp = true; location.hash = hash; };
+const back = () => {
+  if (movedInApp) history.back();
+  else { history.replaceState(null, "", location.pathname); route(); }
+};
+$("goAdd").onclick = () => go("#add");
+$("goSettings").onclick = () => go("#settings");
+document.querySelectorAll(".back").forEach((b) => (b.onclick = back));
+
+// 追加したことを画面下に少しだけ表示
+let toastTimer;
+function toast(t) {
+  const e = $("toast"); e.textContent = t; e.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => (e.hidden = true), 1500);
+}
+
+// ---------- 家族コード：初回は推測されにくい12文字を自動生成 ----------
 let familyCode = "";
 try { familyCode = localStorage.getItem(CODE_KEY) || ""; } catch (e) {}
 // 共有リンク（?code=xxxx）で開かれた場合は、そのコードで参加する
@@ -140,65 +218,61 @@ if (linkCode && CODE_RE.test(linkCode) && linkCode !== familyCode) {
     try { localStorage.setItem(CODE_KEY, familyCode); } catch (e) {}
   }
 }
-if (linkCode) history.replaceState(null, "", location.pathname); // コードをアドレス欄に残さない
+if (linkCode) history.replaceState(null, "", location.pathname + location.hash); // コードをアドレス欄に残さない
 if (!familyCode) {
   const chars = "abcdefghijkmnpqrstuvwxyz23456789";
   const buf = crypto.getRandomValues(new Uint8Array(12));
   familyCode = Array.from(buf, (b) => chars[b % chars.length]).join("");
   try { localStorage.setItem(CODE_KEY, familyCode); } catch (e) {}
 }
-document.getElementById("code").textContent = familyCode;
-document.getElementById("share").onclick = async () => {
+$("code").textContent = familyCode;
+$("share").onclick = async () => {
   const url = location.origin + location.pathname + "?code=" + familyCode;
   try {
     if (navigator.share) { await navigator.share({ title: "買い物リスト", text: "家族の買い物リストに参加してね", url }); return; }
     await navigator.clipboard.writeText(url);
-    msg("");
     alert("共有リンクをコピーしました。家族に送ってください。");
   } catch (e) { if (e.name !== "AbortError") prompt("このリンクを家族に送ってください", url); }
 };
-document.getElementById("changeCode").onclick = () => {
+$("changeCode").onclick = () => {
   const v = (prompt("家族のスマホに表示されている家族コードを入力", "") || "").trim();
-  if (!CODE_RE.test(v)) { if (v) msg("コードは英小文字と数字の8〜32文字です"); return; }
+  if (!CODE_RE.test(v)) { if (v) alert("コードは英小文字と数字の8〜32文字です"); return; }
   try { localStorage.setItem(CODE_KEY, v); } catch (e) {}
   location.reload();
 };
 
-if (firebaseConfig.apiKey.startsWith("ここに")) {
-  msg("firebase-config.js に Firebase の設定値を貼り付けてください。");
-  throw new Error("Firebase未設定");
-}
+// ---------- 区切り（分類）と表示数 ----------
+const CATS = ["食品", "日用品", "ネット注文", "会社", "その他"]; // 区切り見出し。変更はここを書き換える
+const catOf = (c) => (CATS.includes(c) ? c : "その他");
+let catOrder = [...CATS];   // 表示順。家族で共有（lists/{家族コード}/meta/order）
+const PER_CAT = 6;          // 追加画面で1つの区切りに出す候補の数（多すぎると探すのが面倒なので6個）
+const DONE_KEEP_MS = 24 * 60 * 60 * 1000; // 済にしてから1日で自動削除
+const freqKey = (name) => name.replace(/\//g, "／");   // 候補の文書IDは名前（"/" だけ全角に）
+const tsMs = (t) => (t && t.toMillis ? t.toMillis() : Date.now()); // 書き込み直後(null)は現在時刻扱い
+const byUse = (a, b) => (b.count - a.count) || (tsMs(b.last) - tsMs(a.last)); // 使用回数の多い順→最近使った順
 
+// ---------- Firebase 接続 ----------
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }), // 電波が弱くても動く＋複数タブ対応
 });
 let items = [];
 let freq = [];
-let itemsCol, freqCol;
-const CATS = ["食品", "日用品", "ネット注文", "会社", "その他"]; // 区切り見出し。変更はここを書き換える
-const catOf = (c) => (CATS.includes(c) ? c : "その他");
-let catOrder = [...CATS];   // 表示順。家族で共有（lists/{家族コード}/meta/order）
-const CHIP_MAX = 8;                // よく買うもの候補の表示数（多すぎるとスクロールが面倒なので8個）
-const DONE_KEEP_MS = 24 * 60 * 60 * 1000; // 済にしてから1日で自動削除
-
-// 候補の文書IDは名前そのもの（"/" だけ全角に置換）
-const freqKey = (name) => name.replace(/\//g, "／");
-const tsMs = (t) => (t && t.toMillis ? t.toMillis() : Date.now()); // 書き込み直後(null)は現在時刻扱い
+let itemsCol, freqCol, orderRef;
 
 try {
   await signInAnonymously(getAuth(app));   // 匿名ログイン（アカウント作成不要）
   itemsCol = collection(db, "lists", familyCode, "items");
   freqCol = collection(db, "lists", familyCode, "freq");
+  orderRef = doc(db, "lists", familyCode, "meta", "order");
   onSnapshot(query(itemsCol, orderBy("createdAt")), (snap) => {
     items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     cleanup();
     render();
   }, (e) => msg("同期エラー：" + e.code));
-  onSnapshot(doc(db, "lists", familyCode, "meta", "order"), (d) => {
+  onSnapshot(orderRef, (d) => {
     const saved = (d.exists() && Array.isArray(d.data().cats)) ? d.data().cats.filter((c) => CATS.includes(c)) : [];
     catOrder = [...new Set([...saved, ...CATS])];   // 保存順＋足りない分類を後ろに補う
-    buildSelects();
     render();
   }, (e) => msg("同期エラー：" + e.code));
   onSnapshot(freqCol, (snap) => {
@@ -223,7 +297,7 @@ function cleanup() {
 function addItem(name, cat) {
   name = name.trim();
   cat = catOf(cat);
-  if (!name) return;
+  if (!name || !itemsCol) return;
   const same = items.find((it) => it.name === name);
   if (same) {
     if (same.done) updateDoc(doc(itemsCol, same.id), { done: false, doneAt: null }).catch((e) => msg("更新失敗：" + e.code));
@@ -232,155 +306,174 @@ function addItem(name, cat) {
   }
   setDoc(doc(freqCol, freqKey(name)), { name, cat, count: increment(1), last: serverTimestamp() }, { merge: true })
     .catch((e) => msg("候補の保存失敗：" + e.code));
+  toast("「" + name + "」を追加しました");
 }
 
-function renderChips() {
-  const box = document.getElementById("chips");
-  const active = new Set(items.filter((it) => !it.done).map((it) => it.name));
-  // 使用回数の多い順（同数なら最近使った順）。リストに入っているものは除き、次点を繰り上げる
-  const top = freq.filter((f) => !active.has(f.name))
-    .sort((a, b) => (b.count - a.count) || (tsMs(b.last) - tsMs(a.last)))
-    .slice(0, CHIP_MAX);
-  box.innerHTML = "";
-  document.getElementById("chipsEmpty").hidden = freq.length > 0;
-  top.forEach((f) => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.textContent = "＋ " + f.name;
-    b.onclick = () => addItem(f.name, f.cat); // 候補が覚えている分類で追加
-    box.append(b);
-  });
-  // 入力中の予測候補（回数の多い順、全件）
-  const dl = document.getElementById("names");
-  dl.innerHTML = "";
-  [...freq].sort((a, b) => b.count - a.count).forEach((f) => {
-    const o = document.createElement("option"); o.value = f.name; dl.append(o);
-  });
-  // 候補の編集画面：登録済みの一覧と削除
-  const cl = document.getElementById("candList");
-  cl.innerHTML = "";
-  [...freq].sort((a, b) => b.count - a.count).forEach((f) => {
-    const li = document.createElement("li");
-    const s = document.createElement("span"); s.textContent = f.name;
-    const c = document.createElement("small"); c.className = "catlabel"; c.textContent = catOf(f.cat); s.append(" ", c);
-    const d = document.createElement("button");
-    d.type = "button"; d.className = "danger"; d.textContent = "削除";
-    d.onclick = () => deleteDoc(doc(freqCol, f.id)).catch((e) => msg("削除失敗：" + e.code));
-    li.append(s, d); cl.append(li);
-  });
-}
-
-document.getElementById("editToggle").onclick = () => {
-  const ed = document.getElementById("editor");
-  ed.hidden = !ed.hidden;
-  document.getElementById("editToggle").textContent = ed.hidden ? "候補を編集" : "編集を閉じる";
-};
-document.getElementById("bulkAdd").onclick = () => {
-  const box = document.getElementById("bulk");
-  const names = [...new Set(box.value.split("\n").map((s) => s.trim()).filter(Boolean))];
-  const cat = catOf(document.getElementById("bulkCat").value);
-  names.forEach((name) =>
-    setDoc(doc(freqCol, freqKey(name)), { name, cat, count: increment(1), last: serverTimestamp() }, { merge: true })
-      .catch((e) => msg("候補の保存失敗：" + e.code)));
-  box.value = "";
-};
-
+// ---------- 描画 ----------
 function render() {
-  renderChips();
-  const ul = document.getElementById("list");
-  ul.innerHTML = "";
+  renderList();
+  if (!$("view-add").hidden) renderAdd();
+  if (!$("view-settings").hidden) renderSettings();
+}
+
+// ① リスト画面：区切りごとに、未チェックを上・済を下に並べる
+function renderList() {
+  const ul = $("list");
+  ul.replaceChildren();
   if (items.length === 0) {
-    ul.innerHTML = '<li class="empty" style="justify-content:center;border:none;background:none">リストは空です</li>';
+    const li = el("li", "empty", "リストは空です。下の「＋ 買うものを追加」から追加してください。");
+    ul.append(li);
     return;
   }
-  // 分類ごとの見出しの下に並べる。各分類の中は未チェックが上、済は下
-  const sorted = [];
   catOrder.forEach((c) => {
     const inCat = items.filter((it) => catOf(it.cat) === c);
     if (inCat.length === 0) return;
-    sorted.push({ head: c });
-    sorted.push(...inCat.filter((it) => !it.done), ...inCat.filter((it) => it.done));
-  });
-  sorted.forEach((it) => {
-    const li = document.createElement("li");
-    if (it.head) { li.className = "head"; li.textContent = it.head; ul.append(li); return; }
-    if (it.done) li.className = "done";
-    const label = document.createElement("label");
-    const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.checked = !!it.done;
-    cb.onchange = () => updateDoc(doc(itemsCol, it.id),
-      cb.checked ? { done: true, doneAt: serverTimestamp() } : { done: false, doneAt: null })
-      .catch((e) => msg("更新失敗：" + e.code));
-    const span = document.createElement("span");
-    span.textContent = it.name;  // textContentでXSS回避
-    label.append(cb, span);
-    if (it.done) { const t = document.createElement("small"); t.textContent = "済"; label.append(t); }
-    const del = document.createElement("button");
-    del.className = "danger"; del.textContent = "削除";
-    del.onclick = () => deleteDoc(doc(itemsCol, it.id)).catch((e) => msg("削除失敗：" + e.code));
-    li.append(label, del);
-    ul.append(li);
+    const head = el("li"); head.append(el("h3", null, c)); ul.append(head);
+    [...inCat.filter((it) => !it.done), ...inCat.filter((it) => it.done)].forEach((it) => {
+      const li = el("li", "row" + (it.done ? " done" : ""));
+      const label = el("label");
+      const cb = el("input"); cb.type = "checkbox"; cb.checked = !!it.done;
+      cb.onchange = () => updateDoc(doc(itemsCol, it.id),
+        cb.checked ? { done: true, doneAt: serverTimestamp() } : { done: false, doneAt: null })
+        .catch((e) => msg("更新失敗：" + e.code));
+      label.append(cb, el("span", "name", it.name));   // textContentでXSS回避
+      if (it.done) label.append(el("span", "badge", "済"));
+      const del = el("button", "x", "×");
+      del.type = "button"; del.setAttribute("aria-label", it.name + "をリストから消す");
+      del.onclick = () => deleteDoc(doc(itemsCol, it.id)).catch((e) => msg("削除失敗：" + e.code));
+      li.append(label, del);
+      ul.append(li);
+    });
   });
 }
 
-document.getElementById("form").onsubmit = (e) => {
-  e.preventDefault();
-  const input = document.getElementById("item");
-  const catSel = document.getElementById("cat");
-  addItem(input.value, catSel.value);
-  try { localStorage.setItem("last-cat", catSel.value); } catch (e) {}  // 次回も同じ分類を選んだ状態にする
-  input.value = "";
-};
-// 分類の選択肢を作る（入力欄・候補登録欄）。並び順が変わったら作り直し、選択中の値は保つ
-function buildSelects() {
-  let last = "";
-  try { last = localStorage.getItem("last-cat") || ""; } catch (e) {}
-  for (const id of ["cat", "bulkCat"]) {
-    const sel = document.getElementById(id);
-    const cur = sel.value || (id === "cat" ? last : "");
-    sel.innerHTML = "";
-    catOrder.forEach((c) => { const o = document.createElement("option"); o.value = c; o.textContent = c; sel.append(o); });
-    if (catOrder.includes(cur)) sel.value = cur;
+// ② 追加画面：区切りごとによく買うものを並べる。入力すると絞り込み、無ければ新しく追加
+function chipFor(f, active) {
+  const on = active.has(f.name);
+  const b = el("button", "chip" + (on ? " on" : ""), (on ? "✓ " : "＋ ") + f.name);
+  b.type = "button";
+  b.setAttribute("aria-pressed", on ? "true" : "false");
+  b.onclick = () => { if (!active.has(f.name)) addItem(f.name, f.cat); else toast("「" + f.name + "」はリストにあります"); };
+  return b;
+}
+function renderAdd() {
+  const box = $("addBody");
+  box.replaceChildren();
+  const q = $("search").value.trim();
+  const active = new Set(items.filter((it) => !it.done).map((it) => it.name));
+
+  if (q) {
+    const hits = freq.filter((f) => f.name.includes(q)).sort(byUse).slice(0, 12);
+    if (hits.length) {
+      box.append(el("h3", null, "候補"));
+      const chips = el("div", "chips"); hits.forEach((f) => chips.append(chipFor(f, active))); box.append(chips);
+    }
+    if (!freq.some((f) => f.name === q)) {
+      const nb = el("div", "newbox");
+      nb.append(el("p", null, "「" + q + "」を新しく追加。どの区切りに入れますか？"));
+      const chips = el("div", "chips");
+      catOrder.forEach((c) => {
+        const b = el("button", "sub", c); b.type = "button";
+        b.onclick = () => { addItem(q, c); $("search").value = ""; renderAdd(); };
+        chips.append(b);
+      });
+      nb.append(chips); box.append(nb);
+    }
+    return;
   }
-}
-buildSelects();
 
-// 区切りの並び替え（↑↓）。家族全員に同じ順で反映
-function renderOrder() {
-  const ul = document.getElementById("orderList");
-  ul.innerHTML = "";
+  if (freq.length === 0) {
+    box.append(el("p", "hint", "よく買うものはまだありません。上の欄に入力して追加すると、次からここに並びます。"));
+    return;
+  }
+  box.append(el("p", "hint", "タップするとリストに入ります。よく買う順に並んでいます。"));
+  catOrder.forEach((c) => {
+    const list = freq.filter((f) => catOf(f.cat) === c).sort(byUse).slice(0, PER_CAT);
+    if (!list.length) return;
+    box.append(el("h3", null, c));
+    const chips = el("div", "chips"); list.forEach((f) => chips.append(chipFor(f, active))); box.append(chips);
+  });
+  box.append(el("p", "hint", "見つからないときは、上の欄に入力してください。"));
+}
+$("search").addEventListener("input", renderAdd);
+$("searchForm").onsubmit = (e) => {
+  e.preventDefault();
+  const q = $("search").value.trim();
+  const hit = freq.find((f) => f.name === q);
+  if (hit) { addItem(hit.name, hit.cat); $("search").value = ""; renderAdd(); }
+  else $("search").blur();   // 新しい品物は区切りを選んでもらう
+};
+
+// ③ 設定画面
+function renderSettings() {
+  // 区切りの順番
+  const ol = $("orderList");
+  ol.replaceChildren();
   catOrder.forEach((c, i) => {
-    const li = document.createElement("li");
-    const s = document.createElement("span"); s.textContent = c; s.style.flex = "1";
+    const li = el("li", "row");
+    li.append(el("span", null, c));
     const mk = (label, dir) => {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "sub"; b.textContent = label;
+      const b = el("button", "sub", label);
+      b.type = "button";
       b.setAttribute("aria-label", c + "を" + (dir < 0 ? "上へ" : "下へ"));
       b.disabled = i + dir < 0 || i + dir >= catOrder.length;
       b.onclick = () => {
         const next = [...catOrder];
         [next[i], next[i + dir]] = [next[i + dir], next[i]];
-        catOrder = next; buildSelects(); render(); renderOrder();
-        setDoc(doc(db, "lists", familyCode, "meta", "order"), { cats: next })
-          .catch((e) => msg("並び順の保存失敗：" + e.code));
+        catOrder = next; render();
+        setDoc(orderRef, { cats: next }).catch((e) => msg("並び順の保存失敗：" + e.code));
       };
       return b;
     };
-    li.append(s, mk("↑", -1), mk("↓", 1));
-    ul.append(li);
+    li.append(mk("↑", -1), mk("↓", 1));
+    ol.append(li);
+  });
+
+  // 候補登録の分類（選択中の値は保つ）
+  const sel = $("bulkCat");
+  const cur = sel.value;
+  sel.replaceChildren(...catOrder.map((c) => { const o = el("option", null, c); o.value = c; return o; }));
+  if (catOrder.includes(cur)) sel.value = cur;
+
+  // 登録済みの候補（区切りごと）
+  const cl = $("candList");
+  cl.replaceChildren();
+  if (freq.length === 0) cl.append(el("p", "hint", "まだありません。"));
+  catOrder.forEach((c) => {
+    const list = freq.filter((f) => catOf(f.cat) === c).sort(byUse);
+    if (!list.length) return;
+    cl.append(el("h3", null, c));
+    const ul = el("ul");
+    list.forEach((f) => {
+      const li = el("li", "row");
+      li.append(el("span", null, f.name));
+      const d = el("button", "danger", "削除"); d.type = "button";
+      d.onclick = () => deleteDoc(doc(freqCol, f.id)).catch((e) => msg("削除失敗：" + e.code));
+      li.append(d); ul.append(li);
+    });
+    cl.append(ul);
   });
 }
-document.getElementById("orderToggle").onclick = () => {
-  const p = document.getElementById("orderPanel");
-  p.hidden = !p.hidden;
-  document.getElementById("orderToggle").textContent = p.hidden ? "区切りの順番を変更" : "順番変更を閉じる";
-  if (!p.hidden) renderOrder();
+$("bulkAdd").onclick = () => {
+  const box = $("bulk");
+  const names = [...new Set(box.value.split("\n").map((s) => s.trim()).filter(Boolean))];
+  const cat = catOf($("bulkCat").value);
+  names.forEach((name) =>
+    setDoc(doc(freqCol, freqKey(name)), { name, cat, count: increment(1), last: serverTimestamp() }, { merge: true })
+      .catch((e) => msg("候補の保存失敗：" + e.code)));
+  box.value = "";
+  if (names.length) toast(names.length + "件 登録しました");
 };
-document.getElementById("clear").onclick = () => {
+$("clear").onclick = () => {
+  const done = items.filter((it) => it.done);
+  if (!done.length) { toast("チェック済みはありません"); return; }
+  if (!confirm("チェック済み " + done.length + "件を削除しますか？")) return;
   const batch = writeBatch(db);
-  items.filter((it) => it.done).forEach((it) => batch.delete(doc(itemsCol, it.id)));
+  done.forEach((it) => batch.delete(doc(itemsCol, it.id)));
   batch.commit().catch((e) => msg("削除失敗：" + e.code));
 };
-render();
+
+route();
 </script>
 </body>
 </html>
