@@ -143,7 +143,7 @@ ul { list-style: none; margin: 0; padding: 0; }
       <button type="button" class="sub" id="changeCode">家族コードを入力・変更</button>
     </div>
     <div class="card">
-      <h2>区切りの順番</h2>
+      <h2>分類の順番</h2>
       <p class="hint">↑↓で入れ替えます。家族全員の画面に反映されます。</p>
       <ul id="orderList"></ul>
     </div>
@@ -241,11 +241,21 @@ $("changeCode").onclick = () => {
   location.reload();
 };
 
-// ---------- 区切り（分類）と表示数 ----------
-const CATS = ["食品", "日用品", "ネット注文", "会社", "その他"]; // 区切り見出し。変更はここを書き換える
+// ---------- 分類と表示数 ----------
+const CATS = ["食品", "日用品", "ネット注文", "会社", "おたえ", "その他"]; // 分類見出し。変更はここを書き換える
 const catOf = (c) => (CATS.includes(c) ? c : "その他");
 let catOrder = [...CATS];   // 表示順。家族で共有（lists/{家族コード}/meta/order）
-const PER_CAT = 6;          // 追加画面で1つの区切りに出す候補の数（多すぎると探すのが面倒なので6個）
+// 保存済みの並び順に、あとから増やした分類を差し込む（CATSで直前にある分類のすぐ下へ。例：おたえ→会社の下）
+function mergeOrder(saved) {
+  const order = [...saved];
+  CATS.forEach((c, i) => {
+    if (order.includes(c)) return;
+    const prev = CATS.slice(0, i).reverse().find((p) => order.includes(p));
+    order.splice(prev ? order.indexOf(prev) + 1 : 0, 0, c);
+  });
+  return order;
+}
+const PER_CAT = 6;         // 追加画面で1つの分類に出す候補の数（多すぎると探すのが面倒なので6個）
 const DONE_KEEP_MS = 24 * 60 * 60 * 1000; // 済にしてから1日で自動削除
 const freqKey = (name) => name.replace(/\//g, "／");   // 候補の文書IDは名前（"/" だけ全角に）
 const tsMs = (t) => (t && t.toMillis ? t.toMillis() : Date.now()); // 書き込み直後(null)は現在時刻扱い
@@ -272,7 +282,7 @@ try {
   }, (e) => msg("同期エラー：" + e.code));
   onSnapshot(orderRef, (d) => {
     const saved = (d.exists() && Array.isArray(d.data().cats)) ? d.data().cats.filter((c) => CATS.includes(c)) : [];
-    catOrder = [...new Set([...saved, ...CATS])];   // 保存順＋足りない分類を後ろに補う
+    catOrder = mergeOrder([...new Set(saved)]);
     render();
   }, (e) => msg("同期エラー：" + e.code));
   onSnapshot(freqCol, (snap) => {
@@ -316,7 +326,7 @@ function render() {
   if (!$("view-settings").hidden) renderSettings();
 }
 
-// ① リスト画面：区切りごとに、追加した順に並べる
+// ① リスト画面：分類ごとに、追加した順に並べる
 function renderList() {
   const ul = $("list");
   ul.replaceChildren();
@@ -348,7 +358,7 @@ function renderList() {
   });
 }
 
-// ② 追加画面：区切りごとによく買うものを並べる。入力すると絞り込み、無ければ新しく追加
+// ② 追加画面：分類ごとによく買うものを並べる。入力すると絞り込み、無ければ新しく追加
 function chipFor(f, active) {
   const on = active.has(f.name);
   const b = el("button", "chip" + (on ? " on" : ""), (on ? "✓ " : "＋ ") + f.name);
@@ -371,7 +381,7 @@ function renderAdd() {
     }
     if (!freq.some((f) => f.name === q)) {
       const nb = el("div", "newbox");
-      nb.append(el("p", null, "「" + q + "」を新しく追加。どの区切りに入れますか？"));
+      nb.append(el("p", null, "「" + q + "」を新しく追加。どの分類に入れますか？"));
       const chips = el("div", "chips");
       catOrder.forEach((c) => {
         const b = el("button", "sub", c); b.type = "button";
@@ -402,12 +412,12 @@ $("searchForm").onsubmit = (e) => {
   const q = $("search").value.trim();
   const hit = freq.find((f) => f.name === q);
   if (hit) { addItem(hit.name, hit.cat); $("search").value = ""; renderAdd(); }
-  else $("search").blur();   // 新しい品物は区切りを選んでもらう
+  else $("search").blur();   // 新しい品物は分類を選んでもらう
 };
 
 // ③ 設定画面
 function renderSettings() {
-  // 区切りの順番
+  // 分類の順番
   const ol = $("orderList");
   ol.replaceChildren();
   catOrder.forEach((c, i) => {
@@ -436,7 +446,7 @@ function renderSettings() {
   sel.replaceChildren(...catOrder.map((c) => { const o = el("option", null, c); o.value = c; return o; }));
   if (catOrder.includes(cur)) sel.value = cur;
 
-  // 登録済みの候補（区切りごと）
+  // 登録済みの候補（分類ごと）
   const cl = $("candList");
   cl.replaceChildren();
   if (freq.length === 0) cl.append(el("p", "hint", "まだありません。"));
