@@ -107,7 +107,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   </header>
   <main>
     <p class="msg" id="msg" role="alert"></p>
-    <p class="hint">買ったら、品物をタップしてチェック。チェックしたものは1日で消えます。</p>
+    <p class="hint">買ったら、品物をタップしてチェック。もう一度タップで取り消し。チェックしたものは1日で消えます。</p>
     <ul id="list"></ul>
   </main>
   <div class="footer"><button type="button" id="goAdd">＋ 買うものを追加</button></div>
@@ -316,7 +316,7 @@ function render() {
   if (!$("view-settings").hidden) renderSettings();
 }
 
-// ① リスト画面：区切りごとに、未チェックを上・済を下に並べる
+// ① リスト画面：区切りごとに、追加した順に並べる
 function renderList() {
   const ul = $("list");
   ul.replaceChildren();
@@ -329,7 +329,8 @@ function renderList() {
     const inCat = items.filter((it) => catOf(it.cat) === c);
     if (inCat.length === 0) return;
     const head = el("li"); head.append(el("h3", null, c)); ul.append(head);
-    [...inCat.filter((it) => !it.done), ...inCat.filter((it) => it.done)].forEach((it) => {
+    // チェックしても場所は動かさない（同じ場所をもう一度押せば取り消せるように）
+    inCat.forEach((it) => {
       const li = el("li", "row" + (it.done ? " done" : ""));
       const label = el("label");
       const cb = el("input"); cb.type = "checkbox"; cb.checked = !!it.done;
