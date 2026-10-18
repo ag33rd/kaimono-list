@@ -52,6 +52,11 @@ li {
 li label { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
 li input[type=checkbox] { width: 28px; height: 28px; accent-color: var(--primary); }
 li.done span { text-decoration: line-through; color: var(--text-sub); }
+h2 { font-size: 16px; color: var(--text-sub); margin: 0 0 8px; }
+#chipsWrap { margin-bottom: 16px; }
+#chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
+li small { color: var(--text-sub); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 14px; }
 .empty { color: var(--text-sub); text-align: center; padding: 24px 0; }
 .actions { margin-top: 16px; }
 .msg { color: var(--danger); font-weight: 700; margin: 0 0 12px; }
@@ -63,9 +68,14 @@ li.done span { text-decoration: line-through; color: var(--text-sub); }
 <header><h1>買い物リスト</h1></header>
 <main>
   <form id="form">
-    <input type="text" id="item" placeholder="買うものを入力" aria-label="買うもの" autocomplete="off">
+    <input type="text" id="item" list="names" placeholder="リストにないものは入力" aria-label="買うもの" autocomplete="off">
+    <datalist id="names"></datalist>
     <button type="submit">追加</button>
   </form>
+  <section id="chipsWrap" hidden>
+    <h2>よく買うもの（タップで追加）</h2>
+    <div id="chips"></div>
+  </section>
   <ul id="list"></ul>
   <div class="actions"><button class="sub" id="clear">チェック済みを削除</button></div>
   <p class="msg" id="msg" role="alert"></p>
@@ -79,8 +89,8 @@ li.done span { text-decoration: line-through; color: var(--text-sub); }
 <script type="module">
 // 家族共有版：Firestoreにリアルタイム同期。構成は lists/{家族コード}/items/{id}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"; // バージョン要確認
-import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc,
-  onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch, where }
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, addDoc, updateDoc, deleteDoc,
+  setDoc, increment, onSnapshot, query, orderBy, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -130,38 +140,106 @@ if (firebaseConfig.apiKey.startsWith("ここに")) {
 }
 
 const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, { localCache: persistentLocalCache() }); // 電波が弱くても動く
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }), // 電波が弱くても動く＋複数タブ対応
+});
 let items = [];
-let itemsCol;
+let freq = [];
+let itemsCol, freqCol;
+const CHIP_MAX = 8;                 // よく買うもの候補の表示数（多すぎるとスクロールが面倒なので8個）
+const DONE_KEEP_MS = 24 * 60 * 60 * 1000; // 済にしてから1日で自動削除
+
+// 候補の文書IDは名前そのもの（"/" だけ全角に置換）
+const freqKey = (name) => name.replace(/\//g, "／");
+const tsMs = (t) => (t && t.toMillis ? t.toMillis() : Date.now()); // 書き込み直後(null)は現在時刻扱い
 
 try {
   await signInAnonymously(getAuth(app));   // 匿名ログイン（アカウント作成不要）
   itemsCol = collection(db, "lists", familyCode, "items");
+  freqCol = collection(db, "lists", familyCode, "freq");
   onSnapshot(query(itemsCol, orderBy("createdAt")), (snap) => {
     items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    cleanup();
+    render();
+  }, (e) => msg("同期エラー：" + e.code));
+  onSnapshot(freqCol, (snap) => {
+    freq = snap.docs.map((d) => d.data());
     render();
   }, (e) => msg("同期エラー：" + e.code));
 } catch (e) {
   msg("接続エラー：" + (e.code || e.message));
 }
 
+// 済にして1日たった品物を削除。doneAtが無い古い済み品は今を起点にする
+function cleanup() {
+  const now = Date.now();
+  items.forEach((it) => {
+    if (!it.done) return;
+    if (!it.doneAt) { updateDoc(doc(itemsCol, it.id), { doneAt: serverTimestamp() }).catch(() => {}); return; }
+    if (now - tsMs(it.doneAt) > DONE_KEEP_MS) deleteDoc(doc(itemsCol, it.id)).catch(() => {});
+  });
+}
+
+// 品物を追加（リストにあれば重複させず、済なら未チェックに戻す）。使用回数も加算
+function addItem(name) {
+  name = name.trim();
+  if (!name) return;
+  const same = items.find((it) => it.name === name);
+  if (same) {
+    if (same.done) updateDoc(doc(itemsCol, same.id), { done: false, doneAt: null }).catch((e) => msg("更新失敗：" + e.code));
+  } else {
+    addDoc(itemsCol, { name, done: false, createdAt: serverTimestamp() }).catch((e) => msg("追加失敗：" + e.code));
+  }
+  setDoc(doc(freqCol, freqKey(name)), { name, count: increment(1), last: serverTimestamp() }, { merge: true })
+    .catch((e) => msg("候補の保存失敗：" + e.code));
+}
+
+function renderChips() {
+  const box = document.getElementById("chips");
+  const active = new Set(items.filter((it) => !it.done).map((it) => it.name));
+  // 使用回数の多い順（同数なら最近使った順）。リストに入っているものは除き、次点を繰り上げる
+  const top = freq.filter((f) => !active.has(f.name))
+    .sort((a, b) => (b.count - a.count) || (tsMs(b.last) - tsMs(a.last)))
+    .slice(0, CHIP_MAX);
+  box.innerHTML = "";
+  document.getElementById("chipsWrap").hidden = top.length === 0;
+  top.forEach((f) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = "＋ " + f.name;
+    b.onclick = () => addItem(f.name);
+    box.append(b);
+  });
+  // 入力中の予測候補（回数の多い順、全件）
+  const dl = document.getElementById("names");
+  dl.innerHTML = "";
+  [...freq].sort((a, b) => b.count - a.count).forEach((f) => {
+    const o = document.createElement("option"); o.value = f.name; dl.append(o);
+  });
+}
+
 function render() {
+  renderChips();
   const ul = document.getElementById("list");
   ul.innerHTML = "";
   if (items.length === 0) {
     ul.innerHTML = '<li class="empty" style="justify-content:center;border:none;background:none">リストは空です</li>';
     return;
   }
-  items.forEach((it, i) => {
+  // 未チェックを上に、済は下にまとめる
+  const sorted = [...items.filter((it) => !it.done), ...items.filter((it) => it.done)];
+  sorted.forEach((it) => {
     const li = document.createElement("li");
     if (it.done) li.className = "done";
     const label = document.createElement("label");
     const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.checked = it.done;
-    cb.onchange = () => updateDoc(doc(itemsCol, it.id), { done: cb.checked }).catch((e) => msg("更新失敗：" + e.code));
+    cb.type = "checkbox"; cb.checked = !!it.done;
+    cb.onchange = () => updateDoc(doc(itemsCol, it.id),
+      cb.checked ? { done: true, doneAt: serverTimestamp() } : { done: false, doneAt: null })
+      .catch((e) => msg("更新失敗：" + e.code));
     const span = document.createElement("span");
     span.textContent = it.name;  // textContentでXSS回避
     label.append(cb, span);
+    if (it.done) { const t = document.createElement("small"); t.textContent = "済"; label.append(t); }
     const del = document.createElement("button");
     del.className = "danger"; del.textContent = "削除";
     del.onclick = () => deleteDoc(doc(itemsCol, it.id)).catch((e) => msg("削除失敗：" + e.code));
@@ -173,11 +251,8 @@ function render() {
 document.getElementById("form").onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById("item");
-  const name = input.value.trim();
-  if (!name) return;
+  addItem(input.value);
   input.value = "";
-  addDoc(itemsCol, { name, done: false, createdAt: serverTimestamp() })
-    .catch((e) => msg("追加失敗：" + e.code));
 };
 document.getElementById("clear").onclick = () => {
   const batch = writeBatch(db);
