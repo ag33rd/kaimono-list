@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0017C1">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>買い物リスト</title>
+<style>
+/* デジタル庁デザインシステム風の配色（色コードは要確認：公式の最新値と照合すること） */
+:root {
+  --primary: #0017C1;       /* プライマリ（青） */
+  --primary-hover: #00118F;
+  --text: #1A1A1A;
+  --text-sub: #4D4D4D;
+  --border: #767676;
+  --bg: #FFFFFF;
+  --bg-sub: #F2F2F2;
+  --danger: #EC0000;
+  --focus: #FFD43D;         /* フォーカス用の黄色 */
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg-sub); color: var(--text);
+  font-family: "Noto Sans JP", sans-serif; font-size: 18px; line-height: 1.7;
+}
+header { background: var(--primary); color: #fff; padding: 16px; }
+header h1 { margin: 0; font-size: 22px; }
+main { max-width: 640px; margin: 0 auto; padding: 16px; }
+form { display: flex; gap: 8px; margin-bottom: 16px; }
+input[type=text] {
+  flex: 1; min-height: 48px; padding: 8px 12px; font-size: 18px;
+  border: 2px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+button {
+  min-height: 48px; padding: 8px 16px; font-size: 18px; font-weight: 700;
+  border-radius: 8px; border: 2px solid var(--primary);
+  background: var(--primary); color: #fff; cursor: pointer;
+}
+button:hover { background: var(--primary-hover); }
+button.sub { background: var(--bg); color: var(--primary); }
+button.danger { background: var(--bg); color: var(--danger); border-color: var(--danger); }
+/* キーボード・タッチ操作時の視認性（黄色リング＋黒アウトライン） */
+:focus-visible { outline: 4px solid #000; outline-offset: 2px; box-shadow: 0 0 0 6px var(--focus); }
+ul { list-style: none; margin: 0; padding: 0; }
+li {
+  display: flex; align-items: center; gap: 12px; min-height: 56px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 12px; margin-bottom: 8px;
+}
+li label { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
+li input[type=checkbox] { width: 28px; height: 28px; accent-color: var(--primary); }
+li.done span { text-decoration: line-through; color: var(--text-sub); }
+.empty { color: var(--text-sub); text-align: center; padding: 24px 0; }
+.actions { margin-top: 16px; }
+.msg { color: var(--danger); font-weight: 700; margin: 0 0 12px; }
+.family { margin-top: 32px; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
+.family code { font-size: 20px; font-weight: 700; word-break: break-all; }
+</style>
+</head>
+<body>
+<header><h1>買い物リスト</h1></header>
+<main>
+  <form id="form">
+    <input type="text" id="item" placeholder="買うものを入力" aria-label="買うもの" autocomplete="off">
+    <button type="submit">追加</button>
+  </form>
+  <ul id="list"></ul>
+  <div class="actions"><button class="sub" id="clear">チェック済みを削除</button></div>
+  <p class="msg" id="msg" role="alert"></p>
+  <section class="family">
+    <p>家族コード：<code id="code"></code></p>
+    <p>同じコードを入れた端末どうしでリストが共有されます。</p>
+    <button class="sub" id="changeCode">家族コードを入力・変更</button>
+  </section>
+</main>
+<script type="module">
+// 家族共有版：Firestoreにリアルタイム同期。構成は lists/{家族コード}/items/{id}
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"; // バージョン要確認
+import { initializeFirestore, persistentLocalCache, collection, doc, addDoc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, serverTimestamp, getDocs, writeBatch, where }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const msg = (t) => { document.getElementById("msg").textContent = t; };
+const CODE_KEY = "family-code";
+
+// 家族コード：初回は推測されにくい12文字を自動生成
+let familyCode = "";
+try { familyCode = localStorage.getItem(CODE_KEY) || ""; } catch (e) {}
+if (!familyCode) {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  const buf = crypto.getRandomValues(new Uint8Array(12));
+  familyCode = Array.from(buf, (b) => chars[b % chars.length]).join("");
+  try { localStorage.setItem(CODE_KEY, familyCode); } catch (e) {}
+}
+document.getElementById("code").textContent = familyCode;
+document.getElementById("changeCode").onclick = () => {
+  const v = (prompt("家族のスマホに表示されている家族コードを入力", "") || "").trim();
+  if (!/^[a-z0-9]{8,32}$/.test(v)) { if (v) msg("コードは英小文字と数字の8〜32文字です"); return; }
+  try { localStorage.setItem(CODE_KEY, v); } catch (e) {}
+  location.reload();
+};
+
+if (firebaseConfig.apiKey.startsWith("ここに")) {
+  msg("firebase-config.js に Firebase の設定値を貼り付けてください。");
+  throw new Error("Firebase未設定");
+}
+
+const app = initializeApp(firebaseConfig);
+const db = initializeFirestore(app, { localCache: persistentLocalCache() }); // 電波が弱くても動く
+let items = [];
+let itemsCol;
+
+try {
+  await signInAnonymously(getAuth(app));   // 匿名ログイン（アカウント作成不要）
+  itemsCol = collection(db, "lists", familyCode, "items");
+  onSnapshot(query(itemsCol, orderBy("createdAt")), (snap) => {
+    items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  }, (e) => msg("同期エラー：" + e.code));
+} catch (e) {
+  msg("接続エラー：" + (e.code || e.message));
+}
+
+function render() {
+  const ul = document.getElementById("list");
+  ul.innerHTML = "";
+  if (items.length === 0) {
+    ul.innerHTML = '<li class="empty" style="justify-content:center;border:none;background:none">リストは空です</li>';
+    return;
+  }
+  items.forEach((it, i) => {
+    const li = document.createElement("li");
+    if (it.done) li.className = "done";
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = it.done;
+    cb.onchange = () => updateDoc(doc(itemsCol, it.id), { done: cb.checked }).catch((e) => msg("更新失敗：" + e.code));
+    const span = document.createElement("span");
+    span.textContent = it.name;  // textContentでXSS回避
+    label.append(cb, span);
+    const del = document.createElement("button");
+    del.className = "danger"; del.textContent = "削除";
+    del.onclick = () => deleteDoc(doc(itemsCol, it.id)).catch((e) => msg("削除失敗：" + e.code));
+    li.append(label, del);
+    ul.append(li);
+  });
+}
+
+document.getElementById("form").onsubmit = (e) => {
+  e.preventDefault();
+  const input = document.getElementById("item");
+  const name = input.value.trim();
+  if (!name) return;
+  input.value = "";
+  addDoc(itemsCol, { name, done: false, createdAt: serverTimestamp() })
+    .catch((e) => msg("追加失敗：" + e.code));
+};
+document.getElementById("clear").onclick = () => {
+  const batch = writeBatch(db);
+  items.filter((it) => it.done).forEach((it) => batch.delete(doc(itemsCol, it.id)));
+  batch.commit().catch((e) => msg("削除失敗：" + e.code));
+};
+render();
+</script>
+</body>
+</html>
