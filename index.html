@@ -81,6 +81,10 @@ ul { list-style: none; margin: 0; padding: 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
 .chip.on { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+.chip.del { color: var(--danger); border-color: var(--danger); }
+.chip.del:hover { background: #FDEEEE; }
+.tidy { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.tidy button { min-height: 44px; padding: 4px 16px; font-size: 16px; }
 .newbox { background: var(--bg); border: 2px solid var(--primary); border-radius: 8px; padding: 12px; margin: 16px 0; }
 .newbox p { margin: 0 0 8px; font-weight: 700; }
 .toast {
@@ -186,7 +190,7 @@ function route() {
   const v = location.hash === "#add" ? "add" : location.hash === "#settings" ? "settings" : "list";
   for (const name of ["list", "add", "settings"]) $("view-" + name).hidden = name !== v;
   window.scrollTo(0, 0);
-  if (v === "add") { $("search").value = ""; }
+  if (v === "add") { $("search").value = ""; tidying = false; }
   render();
 }
 window.addEventListener("hashchange", route);
@@ -198,6 +202,8 @@ const back = () => {
 $("goAdd").onclick = () => go("#add");
 $("goSettings").onclick = () => go("#settings");
 document.querySelectorAll(".back").forEach((b) => (b.onclick = back));
+
+let tidying = false;   // 追加画面の「候補を整理」中か（×で候補を消せる状態）
 
 // 追加したことを画面下に少しだけ表示
 let toastTimer;
@@ -360,6 +366,17 @@ function renderList() {
 
 // ② 追加画面：分類ごとによく買うものを並べる。入力すると絞り込み、無ければ新しく追加
 function chipFor(f, active) {
+  if (tidying) {
+    // 整理中：タップで候補から消す（リストの品物は消えない）
+    const b = el("button", "chip del", "× " + f.name);
+    b.type = "button";
+    b.setAttribute("aria-label", f.name + "を候補から消す");
+    b.onclick = () => {
+      deleteDoc(doc(freqCol, f.id)).catch((e) => msg("削除失敗：" + e.code));
+      toast("「" + f.name + "」を候補から消しました");
+    };
+    return b;
+  }
   const on = active.has(f.name);
   const b = el("button", "chip" + (on ? " on" : ""), (on ? "✓ " : "＋ ") + f.name);
   b.type = "button";
@@ -373,13 +390,23 @@ function renderAdd() {
   const q = $("search").value.trim();
   const active = new Set(items.filter((it) => !it.done).map((it) => it.name));
 
+  // 「候補を整理」の切り替えボタン
+  if (freq.length) {
+    const bar = el("div", "tidy");
+    const t = el("button", "sub", tidying ? "整理を終わる" : "候補を整理");
+    t.type = "button";
+    t.onclick = () => { tidying = !tidying; renderAdd(); };
+    bar.append(t); box.append(bar);
+  }
+  if (tidying) box.append(el("p", "hint", "消したい候補をタップしてください。全部の候補を表示しています。リストに入っている品物は消えません。"));
+
   if (q) {
-    const hits = freq.filter((f) => f.name.includes(q)).sort(byUse).slice(0, 12);
+    const hits = freq.filter((f) => f.name.includes(q)).sort(byUse).slice(0, tidying ? Infinity : 12);
     if (hits.length) {
       box.append(el("h3", null, "候補"));
       const chips = el("div", "chips"); hits.forEach((f) => chips.append(chipFor(f, active))); box.append(chips);
-    }
-    if (!freq.some((f) => f.name === q)) {
+    } else if (tidying) box.append(el("p", "hint", "当てはまる候補はありません。"));
+    if (!tidying && !freq.some((f) => f.name === q)) {
       const nb = el("div", "newbox");
       nb.append(el("p", null, "「" + q + "」を新しく追加。どの分類に入れますか？"));
       const chips = el("div", "chips");
@@ -397,14 +424,15 @@ function renderAdd() {
     box.append(el("p", "hint", "よく買うものはまだありません。上の欄に入力して追加すると、次からここに並びます。"));
     return;
   }
-  box.append(el("p", "hint", "タップするとリストに入ります。よく買う順に並んでいます。"));
+  if (!tidying) box.append(el("p", "hint", "タップするとリストに入ります。よく買う順に並んでいます。"));
   catOrder.forEach((c) => {
-    const list = freq.filter((f) => catOf(f.cat) === c).sort(byUse).slice(0, PER_CAT);
+    // 整理中は分類内の全部を出す（間違えた候補は使用回数が少なく、6個に入らないため）
+    const list = freq.filter((f) => catOf(f.cat) === c).sort(byUse).slice(0, tidying ? Infinity : PER_CAT);
     if (!list.length) return;
     box.append(el("h3", null, c));
     const chips = el("div", "chips"); list.forEach((f) => chips.append(chipFor(f, active))); box.append(chips);
   });
-  box.append(el("p", "hint", "見つからないときは、上の欄に入力してください。"));
+  if (!tidying) box.append(el("p", "hint", "見つからないときは、上の欄に入力してください。"));
 }
 $("search").addEventListener("input", renderAdd);
 $("searchForm").onsubmit = (e) => {
