@@ -72,6 +72,7 @@ li.done span { text-decoration: line-through; color: var(--text-sub); }
   <section class="family">
     <p>家族コード：<code id="code"></code></p>
     <p>同じコードを入れた端末どうしでリストが共有されます。</p>
+    <p><button id="share">家族に共有リンクを送る</button></p>
     <button class="sub" id="changeCode">家族コードを入力・変更</button>
   </section>
 </main>
@@ -90,6 +91,16 @@ const CODE_KEY = "family-code";
 // 家族コード：初回は推測されにくい12文字を自動生成
 let familyCode = "";
 try { familyCode = localStorage.getItem(CODE_KEY) || ""; } catch (e) {}
+// 共有リンク（?code=xxxx）で開かれた場合は、そのコードで参加する
+const CODE_RE = /^[a-z0-9]{8,32}$/;
+const linkCode = new URLSearchParams(location.search).get("code");
+if (linkCode && CODE_RE.test(linkCode) && linkCode !== familyCode) {
+  if (confirm("家族の買い物リストに参加しますか？")) {
+    familyCode = linkCode;
+    try { localStorage.setItem(CODE_KEY, familyCode); } catch (e) {}
+  }
+}
+if (linkCode) history.replaceState(null, "", location.pathname); // コードをアドレス欄に残さない
 if (!familyCode) {
   const chars = "abcdefghijkmnpqrstuvwxyz23456789";
   const buf = crypto.getRandomValues(new Uint8Array(12));
@@ -97,9 +108,18 @@ if (!familyCode) {
   try { localStorage.setItem(CODE_KEY, familyCode); } catch (e) {}
 }
 document.getElementById("code").textContent = familyCode;
+document.getElementById("share").onclick = async () => {
+  const url = location.origin + location.pathname + "?code=" + familyCode;
+  try {
+    if (navigator.share) { await navigator.share({ title: "買い物リスト", text: "家族の買い物リストに参加してね", url }); return; }
+    await navigator.clipboard.writeText(url);
+    msg("");
+    alert("共有リンクをコピーしました。家族に送ってください。");
+  } catch (e) { if (e.name !== "AbortError") prompt("このリンクを家族に送ってください", url); }
+};
 document.getElementById("changeCode").onclick = () => {
   const v = (prompt("家族のスマホに表示されている家族コードを入力", "") || "").trim();
-  if (!/^[a-z0-9]{8,32}$/.test(v)) { if (v) msg("コードは英小文字と数字の8〜32文字です"); return; }
+  if (!CODE_RE.test(v)) { if (v) msg("コードは英小文字と数字の8〜32文字です"); return; }
   try { localStorage.setItem(CODE_KEY, v); } catch (e) {}
   location.reload();
 };
