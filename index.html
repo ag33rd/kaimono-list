@@ -70,7 +70,8 @@ textarea { width: 100%; padding: 8px 12px; font-size: 18px; font-family: inherit
 .chip { background: var(--bg); color: var(--primary); font-weight: 400; border-radius: 24px; padding: 4px 16px; }
 li small { color: var(--text-sub); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 14px; }
 .empty { color: var(--text-sub); text-align: center; padding: 24px 0; }
-.actions { margin-top: 16px; }
+.actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+#orderPanel { margin-top: 12px; }
 .msg { color: var(--danger); font-weight: 700; margin: 0 0 12px; }
 .family { margin-top: 32px; padding: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
 .family code { font-size: 20px; font-weight: 700; word-break: break-all; }
@@ -99,7 +100,14 @@ li small { color: var(--text-sub); border: 1px solid var(--border); border-radiu
     </div>
   </section>
   <ul id="list"></ul>
-  <div class="actions"><button class="sub" id="clear">チェック済みを削除</button></div>
+  <div class="actions">
+    <button class="sub" id="clear">チェック済みを削除</button>
+    <button class="sub" id="orderToggle" type="button">区切りの順番を変更</button>
+  </div>
+  <div id="orderPanel" hidden>
+    <p class="hint">↑↓で区切りの順番を入れ替えます。家族全員の画面に反映されます。</p>
+    <ul id="orderList"></ul>
+  </div>
   <p class="msg" id="msg" role="alert"></p>
   <section class="family">
     <p>家族コード：<code id="code"></code></p>
@@ -170,6 +178,7 @@ let freq = [];
 let itemsCol, freqCol;
 const CATS = ["食品", "日用品", "ネット注文", "会社", "その他"]; // 区切り見出し。変更はここを書き換える
 const catOf = (c) => (CATS.includes(c) ? c : "その他");
+let catOrder = [...CATS];   // 表示順。家族で共有（lists/{家族コード}/meta/order）
 const CHIP_MAX = 8;                // よく買うもの候補の表示数（多すぎるとスクロールが面倒なので8個）
 const DONE_KEEP_MS = 24 * 60 * 60 * 1000; // 済にしてから1日で自動削除
 
@@ -184,6 +193,12 @@ try {
   onSnapshot(query(itemsCol, orderBy("createdAt")), (snap) => {
     items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     cleanup();
+    render();
+  }, (e) => msg("同期エラー：" + e.code));
+  onSnapshot(doc(db, "lists", familyCode, "meta", "order"), (d) => {
+    const saved = (d.exists() && Array.isArray(d.data().cats)) ? d.data().cats.filter((c) => CATS.includes(c)) : [];
+    catOrder = [...new Set([...saved, ...CATS])];   // 保存順＋足りない分類を後ろに補う
+    buildSelects();
     render();
   }, (e) => msg("同期エラー：" + e.code));
   onSnapshot(freqCol, (snap) => {
@@ -279,7 +294,7 @@ function render() {
   }
   // 分類ごとの見出しの下に並べる。各分類の中は未チェックが上、済は下
   const sorted = [];
-  CATS.forEach((c) => {
+  catOrder.forEach((c) => {
     const inCat = items.filter((it) => catOf(it.cat) === c);
     if (inCat.length === 0) return;
     sorted.push({ head: c });
@@ -315,12 +330,51 @@ document.getElementById("form").onsubmit = (e) => {
   try { localStorage.setItem("last-cat", catSel.value); } catch (e) {}  // 次回も同じ分類を選んだ状態にする
   input.value = "";
 };
-// 分類の選択肢を作る（入力欄・候補登録欄）
-for (const id of ["cat", "bulkCat"]) {
-  const sel = document.getElementById(id);
-  CATS.forEach((c) => { const o = document.createElement("option"); o.value = c; o.textContent = c; sel.append(o); });
+// 分類の選択肢を作る（入力欄・候補登録欄）。並び順が変わったら作り直し、選択中の値は保つ
+function buildSelects() {
+  let last = "";
+  try { last = localStorage.getItem("last-cat") || ""; } catch (e) {}
+  for (const id of ["cat", "bulkCat"]) {
+    const sel = document.getElementById(id);
+    const cur = sel.value || (id === "cat" ? last : "");
+    sel.innerHTML = "";
+    catOrder.forEach((c) => { const o = document.createElement("option"); o.value = c; o.textContent = c; sel.append(o); });
+    if (catOrder.includes(cur)) sel.value = cur;
+  }
 }
-try { const lc = localStorage.getItem("last-cat"); if (CATS.includes(lc)) document.getElementById("cat").value = lc; } catch (e) {}
+buildSelects();
+
+// 区切りの並び替え（↑↓）。家族全員に同じ順で反映
+function renderOrder() {
+  const ul = document.getElementById("orderList");
+  ul.innerHTML = "";
+  catOrder.forEach((c, i) => {
+    const li = document.createElement("li");
+    const s = document.createElement("span"); s.textContent = c; s.style.flex = "1";
+    const mk = (label, dir) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "sub"; b.textContent = label;
+      b.setAttribute("aria-label", c + "を" + (dir < 0 ? "上へ" : "下へ"));
+      b.disabled = i + dir < 0 || i + dir >= catOrder.length;
+      b.onclick = () => {
+        const next = [...catOrder];
+        [next[i], next[i + dir]] = [next[i + dir], next[i]];
+        catOrder = next; buildSelects(); render(); renderOrder();
+        setDoc(doc(db, "lists", familyCode, "meta", "order"), { cats: next })
+          .catch((e) => msg("並び順の保存失敗：" + e.code));
+      };
+      return b;
+    };
+    li.append(s, mk("↑", -1), mk("↓", 1));
+    ul.append(li);
+  });
+}
+document.getElementById("orderToggle").onclick = () => {
+  const p = document.getElementById("orderPanel");
+  p.hidden = !p.hidden;
+  document.getElementById("orderToggle").textContent = p.hidden ? "区切りの順番を変更" : "順番変更を閉じる";
+  if (!p.hidden) renderOrder();
+};
 document.getElementById("clear").onclick = () => {
   const batch = writeBatch(db);
   items.filter((it) => it.done).forEach((it) => batch.delete(doc(itemsCol, it.id)));
