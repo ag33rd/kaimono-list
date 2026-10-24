@@ -173,7 +173,7 @@ ul { list-style: none; margin: 0; padding: 0; }
 <script type="module">
 // 家族共有版：Firestoreにリアルタイム同期。構成は lists/{家族コード}/items・freq・meta
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"; // バージョン要確認
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, addDoc, updateDoc, deleteDoc,
+import { initializeFirestore, memoryLocalCache, collection, doc, addDoc, updateDoc, deleteDoc,
   setDoc, increment, onSnapshot, query, orderBy, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -269,9 +269,14 @@ const byUse = (a, b) => (b.count - a.count) || (tsMs(b.last) - tsMs(a.last)); //
 
 // ---------- Firebase 接続 ----------
 const app = initializeApp(firebaseConfig);
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }), // 電波が弱くても動く＋複数タブ対応
-});
+// 端末への保存（persistentLocalCache）は壊れると同期が止まるため使わない（2026-10-24）。開いている間だけメモリに持つ
+const db = initializeFirestore(app, { localCache: memoryLocalCache() });
+// 以前の版が端末に残した保存データ（壊れている場合あり）を削除
+try {
+  indexedDB.databases?.().then((dbs) => dbs.forEach((d) => {
+    if (d.name && d.name.startsWith("firestore/")) indexedDB.deleteDatabase(d.name);
+  })).catch(() => {});
+} catch (e) {}
 let items = [];
 let freq = [];
 let itemsCol, freqCol, orderRef;
